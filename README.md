@@ -47,7 +47,10 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `POST /auth/login`: autentica por username ou e-mail e retorna um access token.
 - `POST /auth/renew`: renova por mais 10 minutos um access token ainda valido.
 - `POST /veiculos`: cadastra um veiculo para a empresa do usuario autenticado.
+- `GET /veiculos`: lista os veiculos da empresa do usuario autenticado.
 - `POST /hardware`: gera um hardware para a empresa informada e autenticada.
+- `GET /catalogo/marcas`: lista marcas para o dropdown do frontend.
+- `GET /catalogo/marcas/{marca_id}/modelos`: lista modelos de uma marca.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token

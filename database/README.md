@@ -9,12 +9,19 @@ Estrutura inicial para PostgreSQL, baseada no modelo fornecido.
 - `empresas`: empresas e frotas. `user_id` identifica o usuario fundador.
 - `veiculos`: dados dos veiculos. `empresa_id` referencia `empresas.empresa_id`.
 - `hardware`: identificadores de hardware pertencentes a uma empresa.
+- `marcas`: catalogo de marcas de veiculos.
+- `modelos`: modelos relacionados a uma marca.
 - `fotos`: imagens dos veiculos. `veiculo_id` referencia `veiculos.veiculo_id`.
 
 Uma empresa pode possuir varios usuarios e veiculos, e um veiculo pode possuir
 varias fotos. Ao excluir um veiculo, suas fotos sao excluidas em cascata.
 Cada hardware pode ser associado a no maximo um veiculo e somente dentro da
 mesma empresa.
+
+O catalogo inicial inclui nove marcas populares no Brasil: Fiat, Volkswagen,
+Chevrolet, Hyundai, Toyota, Renault, Jeep, Honda e Nissan. Os modelos serao
+adicionados separadamente ao catalogo. A carga inicial possui 38 modelos de
+perfil compativel com frotas e locadoras, relacionados a suas marcas.
 
 ## Convencoes adotadas
 
