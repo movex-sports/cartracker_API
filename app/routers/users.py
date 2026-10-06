@@ -19,28 +19,59 @@ def create_user(payload: UserCreate) -> dict:
 
     try:
         with get_connection() as connection:
+            empresa = connection.execute(
+                """
+                INSERT INTO empresas (nome, status, user_id)
+                VALUES (NULL, TRUE, NULL)
+                RETURNING empresa_id
+                """
+            ).fetchone()
+
             user = connection.execute(
                 """
                 INSERT INTO users (
                     nome, sobrenome, cpf, email, rua, numero, cep, bairro,
-                    cidade, estado, contato, username, password_hash,
-                    role, is_owner, status
+                    cidade, estado, contato, username, password_hash, role,
+                    empresa_id, status
                 )
                 VALUES (
                     %(nome)s, %(sobrenome)s, %(cpf)s, %(email)s, %(rua)s,
                     %(numero)s, %(cep)s, %(bairro)s, %(cidade)s, %(estado)s,
-                    %(contato)s, %(username)s, %(password_hash)s,
-                    '1', FALSE, TRUE
+                    %(contato)s, %(username)s, %(password_hash)s, '1',
+                    %(empresa_id)s, TRUE
                 )
-                RETURNING
-                    user_id, nome, sobrenome, cpf, email, rua, numero, cep,
-                    bairro, cidade, estado, contato, username, role,
-                    is_owner, status
+                RETURNING user_id
                 """,
                 {
                     **payload.model_dump(exclude={"senha"}),
                     "password_hash": password_hash,
+                    "empresa_id": empresa["empresa_id"],
                 },
+            ).fetchone()
+
+            connection.execute(
+                """
+                UPDATE empresas
+                SET user_id = %(user_id)s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE empresa_id = %(empresa_id)s
+                """,
+                {
+                    "user_id": user["user_id"],
+                    "empresa_id": empresa["empresa_id"],
+                },
+            )
+
+            user = connection.execute(
+                """
+                SELECT
+                    user_id, nome, sobrenome, cpf, email, rua, numero, cep,
+                    bairro, cidade, estado, contato, username, role,
+                    empresa_id, status
+                FROM users
+                WHERE user_id = %(user_id)s
+                """,
+                {"user_id": user["user_id"]},
             ).fetchone()
     except psycopg.errors.UniqueViolation as error:
         raise HTTPException(

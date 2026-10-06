@@ -43,5 +43,6 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `POST /users`: cadastra um usuario e armazena somente o hash bcrypt da senha.
 - `GET /docs`: documentacao OpenAPI interativa.
 
-No cadastro, `role` e definido internamente como `"1"`, `is_owner` como `false`
-e `status` como `true`; esses campos nao fazem parte do payload.
+No cadastro, `role` e definido internamente como `"1"` e `status` como `true`.
+A mesma transacao cria uma empresa ativa, ainda sem nome, e devolve seu
+`empresa_id`. Esses campos nao fazem parte do payload.

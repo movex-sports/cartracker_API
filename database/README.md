@@ -4,13 +4,14 @@ Estrutura inicial para PostgreSQL, baseada no modelo fornecido.
 
 ## Tabelas e relacionamentos
 
-- `users`: cadastro, endereco, acesso e situacao dos usuarios.
-- `veiculos`: dados dos veiculos. `owner_id` referencia `users.user_id`.
+- `users`: cadastro, endereco, acesso e situacao dos usuarios. `empresa_id`
+  identifica a empresa a que o usuario pertence.
+- `empresas`: empresas e frotas. `user_id` identifica o usuario fundador.
+- `veiculos`: dados dos veiculos. `empresa_id` referencia `empresas.empresa_id`.
 - `fotos`: imagens dos veiculos. `veiculo_id` referencia `veiculos.veiculo_id`.
 
-Um usuario pode possuir varios veiculos, e um veiculo pode possuir varias fotos.
-Ao excluir um veiculo, suas fotos sao excluidas em cascata. Um usuario que ainda
-possui veiculos nao pode ser excluido.
+Uma empresa pode possuir varios usuarios e veiculos, e um veiculo pode possuir
+varias fotos. Ao excluir um veiculo, suas fotos sao excluidas em cascata.
 
 ## Convencoes adotadas
 

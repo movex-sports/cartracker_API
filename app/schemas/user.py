@@ -84,5 +84,5 @@ class UserResponse(BaseModel):
     contato: str
     username: str
     role: str
-    is_owner: bool
+    empresa_id: int
     status: bool
