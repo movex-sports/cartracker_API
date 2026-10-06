@@ -25,14 +25,15 @@ possui veiculos nao pode ser excluido.
 
 ## Executar a migration
 
-Com a variavel `DATABASE_URL` configurada para uma instancia PostgreSQL:
+Com a variavel `DATABASE_URL` configurada no arquivo `.env` e o pacote
+`psycopg` instalado:
 
 ```powershell
-psql $env:DATABASE_URL -f database/migrations/001_initial_schema.up.sql
+python database/migrate.py up
 ```
 
 Para reverter completamente essa migration:
 
 ```powershell
-psql $env:DATABASE_URL -f database/migrations/001_initial_schema.down.sql
+python database/migrate.py down
 ```
