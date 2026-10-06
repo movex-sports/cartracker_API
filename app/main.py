@@ -7,6 +7,7 @@ from typing import AsyncIterator
 
 import psycopg
 from fastapi import FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.database import check_database
@@ -26,6 +27,13 @@ app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     lifespan=lifespan,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://cartracker-4d0f.onrender.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 app.include_router(users_router)
 
