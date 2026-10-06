@@ -21,6 +21,9 @@ Configure `DATABASE_URL` nas variaveis de ambiente do Web Service. Quando o
 banco e a API estiverem na mesma regiao do Render, prefira a Internal Database
 URL.
 
+Configure tambem `ENVIRONMENT=production` e uma `JWT_SECRET` aleatoria com pelo
+menos 32 caracteres. Nunca salve essa chave no repositorio.
+
 Build Command:
 
 ```text
@@ -41,7 +44,19 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `GET /`: identificacao e versao da API.
 - `GET /health`: verifica a API e a conexao com PostgreSQL.
 - `POST /users`: cadastra um usuario e armazena somente o hash bcrypt da senha.
+- `POST /auth/login`: autentica por username ou e-mail e retorna um access token.
+- `POST /auth/renew`: renova por mais 10 minutos um access token ainda valido.
 - `GET /docs`: documentacao OpenAPI interativa.
+
+O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token
+atual expirar, enviando-o no cabecalho:
+
+```text
+Authorization: Bearer ACCESS_TOKEN_ATUAL
+```
+
+A resposta contem um novo `access_token` valido por 10 minutos. Se o token
+anterior ja estiver expirado, a API responde `401` e um novo login e necessario.
 
 No cadastro, `role` e definido internamente como `"1"` e `status` como `true`.
 A mesma transacao cria uma empresa ativa, ainda sem nome, e devolve seu

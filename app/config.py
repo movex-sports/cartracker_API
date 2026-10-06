@@ -31,6 +31,8 @@ class Settings(BaseModel):
     app_version: str = "0.1.0"
     environment: str = "development"
     database_url: str
+    jwt_secret: str
+    access_token_minutes: int = 10
 
 
 @lru_cache
@@ -40,7 +42,17 @@ def get_settings() -> Settings:
     if not database_url:
         raise RuntimeError("A variavel DATABASE_URL e obrigatoria")
 
+    environment = os.getenv("ENVIRONMENT", "development")
+    is_hosted_on_render = os.getenv("RENDER", "").lower() == "true"
+    jwt_secret = os.getenv("JWT_SECRET", "")
+    if (environment == "production" or is_hosted_on_render) and len(jwt_secret) < 32:
+        raise RuntimeError("JWT_SECRET deve ter pelo menos 32 caracteres em producao")
+    if not jwt_secret:
+        jwt_secret = "development-only-secret-change-before-production"
+
     return Settings(
-        environment=os.getenv("ENVIRONMENT", "development"),
+        environment=environment,
         database_url=database_url,
+        jwt_secret=jwt_secret,
+        access_token_minutes=int(os.getenv("ACCESS_TOKEN_MINUTES", "10")),
     )
