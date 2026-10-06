@@ -46,6 +46,8 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `POST /users`: cadastra um usuario e armazena somente o hash bcrypt da senha.
 - `POST /auth/login`: autentica por username ou e-mail e retorna um access token.
 - `POST /auth/renew`: renova por mais 10 minutos um access token ainda valido.
+- `POST /veiculos`: cadastra um veiculo para a empresa do usuario autenticado.
+- `POST /hardware`: gera um hardware para a empresa informada e autenticada.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token
