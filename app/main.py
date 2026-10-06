@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException, status
 
 from app.config import get_settings
 from app.database import check_database
+from app.routers.users import router as users_router
 
 
 settings = get_settings()
@@ -26,6 +27,7 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan,
 )
+app.include_router(users_router)
 
 
 @app.get("/", tags=["system"])

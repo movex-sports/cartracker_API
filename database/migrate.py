@@ -1,4 +1,4 @@
-"""Apply or revert the Car Tracker PostgreSQL schema migration."""
+"""Apply or revert the Car Tracker PostgreSQL schema migrations."""
 
 from __future__ import annotations
 
@@ -44,40 +44,48 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    migration_path = MIGRATIONS_DIR / f"001_initial_schema.{args.direction}.sql"
-    migration_sql = migration_path.read_text(encoding="utf-8")
-    version = "001_initial_schema"
-    checksum = hashlib.sha256(migration_sql.encode("utf-8")).hexdigest()
-
     with psycopg.connect(load_database_url(), connect_timeout=15) as connection:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                version VARCHAR(255) PRIMARY KEY,
+                checksum VARCHAR(64) NOT NULL,
+                applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
         if args.direction == "up":
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS schema_migrations (
-                    version VARCHAR(255) PRIMARY KEY,
-                    checksum VARCHAR(64) NOT NULL,
-                    applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+            applied_count = 0
+            for migration_path in sorted(MIGRATIONS_DIR.glob("*.up.sql")):
+                version = migration_path.name.removesuffix(".up.sql")
+                migration_sql = migration_path.read_text(encoding="utf-8")
+                checksum = hashlib.sha256(migration_sql.encode("utf-8")).hexdigest()
+
+                applied = connection.execute(
+                    "SELECT checksum FROM schema_migrations WHERE version = %s",
+                    (version,),
+                ).fetchone()
+
+                if applied:
+                    if applied[0] != checksum:
+                        raise RuntimeError(
+                            f"A migration {version} ja foi aplicada, mas foi alterada."
+                        )
+                    continue
+
+                connection.execute(migration_sql)
+                connection.execute(
+                    "INSERT INTO schema_migrations (version, checksum) VALUES (%s, %s)",
+                    (version, checksum),
                 )
-                """
-            )
-            applied = connection.execute(
-                "SELECT checksum FROM schema_migrations WHERE version = %s",
-                (version,),
-            ).fetchone()
+                applied_count += 1
 
-            if applied:
-                if applied[0] != checksum:
-                    raise RuntimeError(
-                        "A migration ja foi aplicada, mas seu arquivo foi alterado."
-                    )
-                print("Migration ja aplicada; nenhuma alteracao necessaria.")
-                return
+            if applied_count == 0:
+                print("Todas as migrations ja estavam aplicadas.")
+            else:
+                print(f"Migrations aplicadas: {applied_count}.")
 
-            connection.execute(migration_sql)
-            connection.execute(
-                "INSERT INTO schema_migrations (version, checksum) VALUES (%s, %s)",
-                (version, checksum),
-            )
             rows = connection.execute(
                 """
                 SELECT table_name
@@ -88,14 +96,27 @@ def main() -> None:
                 """
             ).fetchall()
             tables = ", ".join(row[0] for row in rows)
-            print(f"Migration aplicada. Tabelas confirmadas: {tables}")
+            print(f"Tabelas confirmadas: {tables}")
         else:
-            connection.execute(migration_sql)
-            connection.execute(
-                "DELETE FROM schema_migrations WHERE version = %s",
-                (version,),
-            )
-            print("Migration revertida.")
+            applied = connection.execute(
+                """
+                SELECT version
+                FROM schema_migrations
+                ORDER BY version DESC
+                """
+            ).fetchall()
+
+            for (version,) in applied:
+                migration_path = MIGRATIONS_DIR / f"{version}.down.sql"
+                if not migration_path.exists():
+                    raise RuntimeError(f"Rollback ausente para {version}")
+                connection.execute(migration_path.read_text(encoding="utf-8"))
+                connection.execute(
+                    "DELETE FROM schema_migrations WHERE version = %s",
+                    (version,),
+                )
+
+            print(f"Migrations revertidas: {len(applied)}.")
 
 
 if __name__ == "__main__":
