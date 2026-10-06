@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import os
 from pathlib import Path
 
 import psycopg
@@ -13,6 +15,10 @@ MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 
 
 def load_database_url() -> str:
+    environment_url = os.getenv("DATABASE_URL")
+    if environment_url:
+        return environment_url
+
     env_path = PROJECT_ROOT / ".env"
     if not env_path.exists():
         raise RuntimeError(f"Arquivo de configuracao nao encontrado: {env_path}")
@@ -40,11 +46,38 @@ def main() -> None:
 
     migration_path = MIGRATIONS_DIR / f"001_initial_schema.{args.direction}.sql"
     migration_sql = migration_path.read_text(encoding="utf-8")
+    version = "001_initial_schema"
+    checksum = hashlib.sha256(migration_sql.encode("utf-8")).hexdigest()
 
     with psycopg.connect(load_database_url(), connect_timeout=15) as connection:
-        connection.execute(migration_sql)
-
         if args.direction == "up":
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version VARCHAR(255) PRIMARY KEY,
+                    checksum VARCHAR(64) NOT NULL,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            applied = connection.execute(
+                "SELECT checksum FROM schema_migrations WHERE version = %s",
+                (version,),
+            ).fetchone()
+
+            if applied:
+                if applied[0] != checksum:
+                    raise RuntimeError(
+                        "A migration ja foi aplicada, mas seu arquivo foi alterado."
+                    )
+                print("Migration ja aplicada; nenhuma alteracao necessaria.")
+                return
+
+            connection.execute(migration_sql)
+            connection.execute(
+                "INSERT INTO schema_migrations (version, checksum) VALUES (%s, %s)",
+                (version, checksum),
+            )
             rows = connection.execute(
                 """
                 SELECT table_name
@@ -57,6 +90,11 @@ def main() -> None:
             tables = ", ".join(row[0] for row in rows)
             print(f"Migration aplicada. Tabelas confirmadas: {tables}")
         else:
+            connection.execute(migration_sql)
+            connection.execute(
+                "DELETE FROM schema_migrations WHERE version = %s",
+                (version,),
+            )
             print("Migration revertida.")
 
 

@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE users (
     user_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nome VARCHAR(100) NOT NULL,
@@ -82,5 +80,3 @@ CREATE INDEX fotos_veiculo_id_idx ON fotos (veiculo_id);
 CREATE UNIQUE INDEX fotos_veiculo_thumb_unique_idx
     ON fotos (veiculo_id)
     WHERE thumb = TRUE;
-
-COMMIT;
