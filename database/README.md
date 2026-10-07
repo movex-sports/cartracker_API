@@ -19,6 +19,9 @@ varias fotos. Ao excluir um veiculo, suas fotos sao excluidas em cascata.
 Cada hardware pode ser associado a no maximo um veiculo e somente dentro da
 mesma empresa.
 
+O locatario atual e referenciado por `veiculos.locatario_id`. Um veiculo pode
+ter no maximo um locatario e um locatario pode ocupar no maximo um veiculo.
+
 O catalogo inicial inclui nove marcas populares no Brasil: Fiat, Volkswagen,
 Chevrolet, Hyundai, Toyota, Renault, Jeep, Honda e Nissan. Os modelos serao
 adicionados separadamente ao catalogo. A carga inicial possui 38 modelos de

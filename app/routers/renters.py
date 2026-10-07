@@ -27,10 +27,11 @@ def create_renter(
         with get_connection() as connection:
             vehicle_exists = connection.execute(
                 """
-                SELECT 1
+                SELECT locatario_id
                 FROM veiculos
                 WHERE veiculo_id = %(veiculo_id)s
                   AND empresa_id = %(empresa_id)s
+                FOR UPDATE
                 """,
                 {
                     "veiculo_id": veiculo_id,
@@ -42,24 +43,29 @@ def create_renter(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Veiculo nao encontrado",
                 )
+            if vehicle_exists["locatario_id"] is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Veiculo ja possui um locatario",
+                )
 
             renter = connection.execute(
                 """
                 INSERT INTO locatarios (
-                    empresa_id, veiculo_id, locatario_nome,
-                    locatario_sobrenome, locatario_cpf, locatario_rua,
+                    empresa_id, locatario_nome, locatario_sobrenome,
+                    locatario_cpf, locatario_rua,
                     locatario_numero, locatario_cep, locatario_bairro,
                     locatario_cidade, locatario_estado
                 )
                 VALUES (
-                    %(empresa_id)s, %(veiculo_id)s, %(locatario_nome)s,
+                    %(empresa_id)s, %(locatario_nome)s,
                     %(locatario_sobrenome)s, %(locatario_cpf)s,
                     %(locatario_rua)s, %(locatario_numero)s,
                     %(locatario_cep)s, %(locatario_bairro)s,
                     %(locatario_cidade)s, %(locatario_estado)s
                 )
                 RETURNING
-                    locatario_id, empresa_id, veiculo_id, locatario_nome,
+                    locatario_id, empresa_id, locatario_nome,
                     locatario_sobrenome, locatario_cpf, locatario_rua,
                     locatario_numero, locatario_cep, locatario_bairro,
                     locatario_cidade, locatario_estado
@@ -70,6 +76,22 @@ def create_renter(
                     "veiculo_id": veiculo_id,
                 },
             ).fetchone()
+
+            connection.execute(
+                """
+                UPDATE veiculos
+                SET locatario_id = %(locatario_id)s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE veiculo_id = %(veiculo_id)s
+                  AND empresa_id = %(empresa_id)s
+                """,
+                {
+                    "locatario_id": renter["locatario_id"],
+                    "veiculo_id": veiculo_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            )
+            renter["veiculo_id"] = veiculo_id
     except HTTPException:
         raise
     except psycopg.Error as error:
@@ -91,17 +113,25 @@ def list_renters(
             return connection.execute(
                 """
                 SELECT
-                    locatario_id, empresa_id, veiculo_id, locatario_nome,
-                    locatario_sobrenome, locatario_cpf, locatario_rua,
-                    locatario_numero, locatario_cep, locatario_bairro,
-                    locatario_cidade, locatario_estado
-                FROM locatarios
-                WHERE empresa_id = %(empresa_id)s
+                    locatario.locatario_id, locatario.empresa_id,
+                    veiculo.veiculo_id, locatario.locatario_nome,
+                    locatario.locatario_sobrenome, locatario.locatario_cpf,
+                    locatario.locatario_rua, locatario.locatario_numero,
+                    locatario.locatario_cep, locatario.locatario_bairro,
+                    locatario.locatario_cidade, locatario.locatario_estado
+                FROM locatarios AS locatario
+                LEFT JOIN veiculos AS veiculo
+                    ON veiculo.locatario_id = locatario.locatario_id
+                   AND veiculo.empresa_id = locatario.empresa_id
+                WHERE locatario.empresa_id = %(empresa_id)s
                   AND (
                       %(veiculo_id)s::BIGINT IS NULL
-                      OR veiculo_id = %(veiculo_id)s
+                      OR veiculo.veiculo_id = %(veiculo_id)s
                   )
-                ORDER BY locatario_nome, locatario_sobrenome, locatario_id
+                ORDER BY
+                    locatario.locatario_nome,
+                    locatario.locatario_sobrenome,
+                    locatario.locatario_id
                 """,
                 {
                     "empresa_id": current_user.empresa_id,

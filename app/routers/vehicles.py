@@ -22,8 +22,9 @@ def list_vehicles(
             vehicles = connection.execute(
                 """
                 SELECT
-                    veiculo_id, empresa_id, hardware_id, marca, modelo, ano,
-                    cor, placa, combustivel_tipo, capacidade_tanque_l,
+                    veiculo_id, empresa_id, hardware_id, locatario_id,
+                    marca, modelo, ano, cor, placa, combustivel_tipo,
+                    capacidade_tanque_l,
                     consumo_km_l, velocidade_maxima_kmh, odometro_km
                 FROM veiculos
                 WHERE empresa_id = %(empresa_id)s
@@ -61,8 +62,9 @@ def create_vehicle(
                     %(velocidade_maxima_kmh)s
                 )
                 RETURNING
-                    veiculo_id, empresa_id, hardware_id, marca, modelo, ano,
-                    cor, placa, combustivel_tipo, capacidade_tanque_l,
+                    veiculo_id, empresa_id, hardware_id, locatario_id,
+                    marca, modelo, ano, cor, placa, combustivel_tipo,
+                    capacidade_tanque_l,
                     consumo_km_l, velocidade_maxima_kmh
                 """,
                 {

@@ -66,6 +66,7 @@ class VehicleResponse(VehicleCreate):
     veiculo_id: int
     empresa_id: int
     hardware_id: int | None
+    locatario_id: int | None
 
 
 class VehicleListItem(VehicleResponse):

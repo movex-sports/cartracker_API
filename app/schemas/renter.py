@@ -51,4 +51,4 @@ class RenterCreate(BaseModel):
 class RenterResponse(RenterCreate):
     locatario_id: int
     empresa_id: int
-    veiculo_id: int
+    veiculo_id: int | None
