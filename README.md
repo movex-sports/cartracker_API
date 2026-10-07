@@ -51,6 +51,8 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `POST /hardware`: gera um hardware para a empresa informada e autenticada.
 - `GET /catalogo/marcas`: lista marcas para o dropdown do frontend.
 - `GET /catalogo/marcas/{marca_id}/modelos`: lista modelos de uma marca.
+- `POST /veiculos/{veiculo_id}/locatarios`: cadastra um locatario no veiculo.
+- `GET /locatarios`: lista locatarios da empresa, com filtro opcional por veiculo.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token

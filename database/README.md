@@ -11,6 +11,7 @@ Estrutura inicial para PostgreSQL, baseada no modelo fornecido.
 - `hardware`: identificadores de hardware pertencentes a uma empresa.
 - `marcas`: catalogo de marcas de veiculos.
 - `modelos`: modelos relacionados a uma marca.
+- `locatarios`: locatarios associados a um veiculo e a sua empresa.
 - `fotos`: imagens dos veiculos. `veiculo_id` referencia `veiculos.veiculo_id`.
 
 Uma empresa pode possuir varios usuarios e veiculos, e um veiculo pode possuir

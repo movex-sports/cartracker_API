@@ -14,6 +14,7 @@ from app.database import check_database
 from app.routers.auth import router as auth_router
 from app.routers.catalog import router as catalog_router
 from app.routers.hardware import router as hardware_router
+from app.routers.renters import router as renters_router
 from app.routers.users import router as users_router
 from app.routers.vehicles import router as vehicles_router
 
@@ -42,6 +43,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(catalog_router)
 app.include_router(hardware_router)
+app.include_router(renters_router)
 app.include_router(users_router)
 app.include_router(vehicles_router)
 
