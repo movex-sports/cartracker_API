@@ -68,7 +68,7 @@ def create_renter(
                     locatario_id, empresa_id, locatario_nome,
                     locatario_sobrenome, locatario_cpf, locatario_rua,
                     locatario_numero, locatario_cep, locatario_bairro,
-                    locatario_cidade, locatario_estado
+                    locatario_cidade, locatario_estado, status
                 """,
                 {
                     **payload.model_dump(),
@@ -118,7 +118,8 @@ def list_renters(
                     locatario.locatario_sobrenome, locatario.locatario_cpf,
                     locatario.locatario_rua, locatario.locatario_numero,
                     locatario.locatario_cep, locatario.locatario_bairro,
-                    locatario.locatario_cidade, locatario.locatario_estado
+                    locatario.locatario_cidade, locatario.locatario_estado,
+                    locatario.status
                 FROM locatarios AS locatario
                 LEFT JOIN veiculos AS veiculo
                     ON veiculo.locatario_id = locatario.locatario_id
@@ -143,3 +144,76 @@ def list_renters(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nao foi possivel acessar o banco de dados",
         ) from error
+
+
+@router.patch(
+    "/locatarios/{locatario_id}/desativar",
+    response_model=RenterResponse,
+)
+def deactivate_renter(
+    locatario_id: int = Path(gt=0),
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+) -> dict:
+    try:
+        with get_connection() as connection:
+            renter = connection.execute(
+                """
+                SELECT locatario_id
+                FROM locatarios
+                WHERE locatario_id = %(locatario_id)s
+                  AND empresa_id = %(empresa_id)s
+                FOR UPDATE
+                """,
+                {
+                    "locatario_id": locatario_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            ).fetchone()
+            if not renter:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Locatario nao encontrado",
+                )
+
+            connection.execute(
+                """
+                UPDATE veiculos
+                SET locatario_id = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE locatario_id = %(locatario_id)s
+                  AND empresa_id = %(empresa_id)s
+                """,
+                {
+                    "locatario_id": locatario_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            )
+
+            renter = connection.execute(
+                """
+                UPDATE locatarios
+                SET status = FALSE,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE locatario_id = %(locatario_id)s
+                  AND empresa_id = %(empresa_id)s
+                RETURNING
+                    locatario_id, empresa_id, NULL::BIGINT AS veiculo_id,
+                    locatario_nome, locatario_sobrenome, locatario_cpf,
+                    locatario_rua, locatario_numero, locatario_cep,
+                    locatario_bairro, locatario_cidade, locatario_estado,
+                    status
+                """,
+                {
+                    "locatario_id": locatario_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            ).fetchone()
+    except HTTPException:
+        raise
+    except psycopg.Error as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Nao foi possivel acessar o banco de dados",
+        ) from error
+
+    return renter

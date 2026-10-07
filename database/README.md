@@ -21,6 +21,8 @@ mesma empresa.
 
 O locatario atual e referenciado por `veiculos.locatario_id`. Um veiculo pode
 ter no maximo um locatario e um locatario pode ocupar no maximo um veiculo.
+Ao desativar um locatario, a API limpa a referencia no veiculo e define o
+`status` do locatario como `false` na mesma transacao.
 
 O catalogo inicial inclui nove marcas populares no Brasil: Fiat, Volkswagen,
 Chevrolet, Hyundai, Toyota, Renault, Jeep, Honda e Nissan. Os modelos serao

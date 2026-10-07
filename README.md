@@ -56,6 +56,7 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `GET /catalogo/marcas/{marca_id}/modelos`: lista modelos de uma marca.
 - `POST /veiculos/{veiculo_id}/locatarios`: cadastra um locatario no veiculo.
 - `GET /locatarios`: lista locatarios da empresa, com filtro opcional por veiculo.
+- `PATCH /locatarios/{locatario_id}/desativar`: desativa e libera o veiculo.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token
