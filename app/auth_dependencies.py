@@ -64,3 +64,15 @@ def require_authenticated_user(
         empresa_id=user["empresa_id"],
         role=user["role"],
     )
+
+
+def require_company_owner(
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+) -> AuthenticatedUser:
+    """Allow company-user management only to the role 1 account."""
+    if current_user.role != "1":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas o usuario principal pode gerenciar usuarios dependentes",
+        )
+    return current_user
