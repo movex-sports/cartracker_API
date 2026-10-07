@@ -53,3 +53,9 @@ class RenterResponse(RenterCreate):
     empresa_id: int
     veiculo_id: int | None
     status: bool
+
+
+class RenterActivationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    veiculo_id: int = Field(gt=0)
