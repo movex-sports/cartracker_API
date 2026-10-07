@@ -44,6 +44,7 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `GET /`: identificacao e versao da API.
 - `GET /health`: verifica a API e a conexao com PostgreSQL.
 - `POST /users`: cadastra um usuario e armazena somente o hash bcrypt da senha.
+- `POST /users/dependentes`: cadastra um usuario role 2 na empresa autenticada.
 - `POST /auth/login`: autentica por username ou e-mail e retorna um access token.
 - `POST /auth/renew`: renova por mais 10 minutos um access token ainda valido.
 - `POST /veiculos`: cadastra um veiculo para a empresa do usuario autenticado.
