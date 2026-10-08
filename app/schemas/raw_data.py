@@ -36,4 +36,5 @@ class RentedVehicleLatestStatus(BaseModel):
     velocidade: Decimal | None
     longitude: Decimal | None
     latitude: Decimal | None
+    coordenadas: str | None
     registrado_em: datetime | None

@@ -22,6 +22,35 @@ router = APIRouter(prefix="/dados-crus", tags=["vehicle telemetry"])
 hardware_key_header = APIKeyHeader(name="X-Hardware-Key", auto_error=False)
 
 
+def decimal_to_dms(value: float, positive: str, negative: str) -> str:
+    hemisphere = positive if value >= 0 else negative
+    absolute = abs(value)
+    degrees = int(absolute)
+    minutes_total = (absolute - degrees) * 60
+    minutes = int(minutes_total)
+    seconds = round((minutes_total - minutes) * 60, 1)
+
+    if seconds >= 60:
+        seconds = 0.0
+        minutes += 1
+    if minutes >= 60:
+        minutes = 0
+        degrees += 1
+
+    return f'{degrees}°{minutes:02d}\'{seconds:04.1f}"{hemisphere}'
+
+
+def format_coordinates(latitude: object, longitude: object) -> str | None:
+    if latitude is None or longitude is None:
+        return None
+    return " ".join(
+        (
+            decimal_to_dms(float(latitude), "N", "S"),
+            decimal_to_dms(float(longitude), "E", "W"),
+        )
+    )
+
+
 def require_hardware_key(
     provided_key: str | None = Security(hardware_key_header),
 ) -> None:
@@ -36,6 +65,25 @@ def require_hardware_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Chave do hardware invalida",
         )
+
+
+def insert_raw_data(connection: psycopg.Connection, payload: RawDataCreate) -> dict:
+    return connection.execute(
+        """
+        INSERT INTO dados_crus (
+            veiculo_id, ignicao, bateria, velocidade,
+            longitude, latitude
+        )
+        VALUES (
+            %(veiculo_id)s, %(ignicao)s, %(bateria)s,
+            %(velocidade)s, %(longitude)s, %(latitude)s
+        )
+        RETURNING
+            status_id, veiculo_id, ignicao, bateria, velocidade,
+            longitude, latitude, registrado_em
+        """,
+        payload.model_dump(),
+    ).fetchone()
 
 
 @router.post("", response_model=RawDataResponse, status_code=status.HTTP_201_CREATED)
@@ -61,28 +109,51 @@ def ingest_raw_data(
                     detail="Veiculo nao possui hardware vinculado",
                 )
 
-            raw_data = connection.execute(
-                """
-                INSERT INTO dados_crus (
-                    veiculo_id, ignicao, bateria, velocidade,
-                    longitude, latitude
-                )
-                VALUES (
-                    %(veiculo_id)s, %(ignicao)s, %(bateria)s,
-                    %(velocidade)s, %(longitude)s, %(latitude)s
-                )
-                RETURNING
-                    status_id, veiculo_id, ignicao, bateria, velocidade,
-                    longitude, latitude, registrado_em
-                """,
-                payload.model_dump(),
-            ).fetchone()
+            raw_data = insert_raw_data(connection, payload)
     except HTTPException:
         raise
     except psycopg.Error as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nao foi possivel salvar os dados do hardware",
+        ) from error
+
+    return raw_data
+
+
+@router.post(
+    "/manual",
+    response_model=RawDataResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_manual_raw_data(
+    payload: RawDataCreate,
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+) -> dict:
+    try:
+        with get_connection() as connection:
+            vehicle = connection.execute(
+                """
+                SELECT veiculo_id
+                FROM veiculos
+                WHERE veiculo_id = %(veiculo_id)s
+                  AND empresa_id = %(empresa_id)s
+                """,
+                {
+                    "veiculo_id": payload.veiculo_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            ).fetchone()
+            if not vehicle:
+                raise HTTPException(status_code=404, detail="Veiculo nao encontrado")
+
+            raw_data = insert_raw_data(connection, payload)
+    except HTTPException:
+        raise
+    except psycopg.Error as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Nao foi possivel salvar os dados manuais",
         ) from error
 
     return raw_data
@@ -97,7 +168,7 @@ def list_rented_vehicles_latest_status(
 ) -> list[dict]:
     try:
         with get_connection() as connection:
-            return connection.execute(
+            vehicles = connection.execute(
                 """
                 SELECT
                     veiculo.veiculo_id, veiculo.locatario_id,
@@ -127,3 +198,9 @@ def list_rented_vehicles_latest_status(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nao foi possivel consultar os dados dos veiculos",
         ) from error
+
+    for vehicle in vehicles:
+        vehicle["coordenadas"] = format_coordinates(
+            vehicle["latitude"], vehicle["longitude"]
+        )
+    return vehicles

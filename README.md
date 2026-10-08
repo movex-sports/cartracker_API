@@ -75,11 +75,17 @@ O upload aceita exclusivamente PDF de ate 10 MB.
 
 - `POST /dados-crus`: recebe a leitura do dispositivo usando o header
   `X-Hardware-Key`.
+- `POST /dados-crus/manual`: permite inserir uma leitura manualmente usando o
+  token do usuario, inclusive antes de existir hardware vinculado ao veiculo.
 - `GET /dados-crus/veiculos-alugados`: lista os veiculos alugados da empresa
   autenticada e a leitura mais recente de cada um.
 
 Configure `HARDWARE_INGEST_KEY` no Render com uma chave longa e aleatoria. Veiculos
 sem nenhuma leitura aparecem no GET com os campos de telemetria iguais a `null`.
+TODO: quando o hardware estiver disponivel, configurar `HARDWARE_INGEST_KEY` no
+Render e no dispositivo antes de habilitar o envio automatico.
+O banco guarda latitude e longitude em graus decimais; o GET tambem devolve
+`coordenadas` no formato DMS, por exemplo `23°31'47.0\"S 46°50'41.5\"W`.
 Na exclusao, a API remove permanentemente todas as versoes e marcadores do
 objeto no B2; a Application Key precisa da permissao `deleteFiles`.
 - `GET /docs`: documentacao OpenAPI interativa.
