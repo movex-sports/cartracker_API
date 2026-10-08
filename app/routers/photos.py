@@ -73,10 +73,7 @@ def upload_vehicle_photo(
 ) -> dict:
     image_content = prepare_image(file)
     settings = get_settings()
-    object_key = (
-        f"{settings.b2_object_prefix}/empresas/{current_user.empresa_id}/"
-        f"veiculos/{veiculo_id}/{uuid4()}.webp"
-    )
+    object_key = f"{settings.b2_object_prefix}/{uuid4()}.webp"
     uploaded = False
 
     try:

@@ -62,6 +62,9 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `GET /veiculos/{veiculo_id}/fotos`: lista fotos com URLs temporarias.
 - `PATCH /veiculos/{veiculo_id}/fotos/{foto_id}/thumb`: define a foto principal.
 - `DELETE /veiculos/{veiculo_id}/fotos/{foto_id}`: exclui a foto.
+
+Os arquivos sao armazenados no B2 como `fotos_veiculares/{uuid}.webp`. O
+relacionamento com empresa e veiculo permanece no banco de dados.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token
