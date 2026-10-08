@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.auth_dependencies import (
     AuthenticatedUser,
@@ -207,11 +207,15 @@ def list_dependent_users(
         ) from error
 
 
-@router.delete("/dependentes/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/dependentes/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
 def delete_dependent_user(
     user_id: int,
     current_user: AuthenticatedUser = Depends(require_company_owner),
-) -> None:
+) -> Response:
     try:
         with get_connection() as connection:
             deleted_user = connection.execute(
@@ -244,3 +248,5 @@ def delete_dependent_user(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nao foi possivel acessar o banco de dados",
         ) from error
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

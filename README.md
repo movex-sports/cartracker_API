@@ -58,6 +58,10 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `GET /locatarios`: lista locatarios da empresa, com filtro opcional por veiculo.
 - `PATCH /locatarios/{locatario_id}/desativar`: desativa e libera o veiculo.
 - `PATCH /locatarios/{locatario_id}/ativar`: reativa e atribui um veiculo livre.
+- `POST /veiculos/{veiculo_id}/fotos`: envia uma foto em multipart para o B2.
+- `GET /veiculos/{veiculo_id}/fotos`: lista fotos com URLs temporarias.
+- `PATCH /veiculos/{veiculo_id}/fotos/{foto_id}/thumb`: define a foto principal.
+- `DELETE /veiculos/{veiculo_id}/fotos/{foto_id}`: exclui a foto.
 - `GET /docs`: documentacao OpenAPI interativa.
 
 O frontend deve chamar `/auth/renew` em cada nova navegacao, antes de o token
