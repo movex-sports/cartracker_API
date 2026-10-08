@@ -67,6 +67,7 @@ class VehicleResponse(VehicleCreate):
     empresa_id: int
     hardware_id: int | None
     locatario_id: int | None
+    foto_thumb_url: str | None = None
 
 
 class VehicleListItem(VehicleResponse):

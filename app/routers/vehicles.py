@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth_dependencies import AuthenticatedUser, require_authenticated_user
 from app.database import get_connection
 from app.schemas.vehicle import VehicleCreate, VehicleListItem, VehicleResponse
+from app.storage import StorageError, create_download_url
 
 
 router = APIRouter(prefix="/veiculos", tags=["vehicles"])
@@ -22,13 +23,23 @@ def list_vehicles(
             vehicles = connection.execute(
                 """
                 SELECT
-                    veiculo_id, empresa_id, hardware_id, locatario_id,
-                    marca, modelo, ano, cor, placa, combustivel_tipo,
-                    capacidade_tanque_l,
-                    consumo_km_l, velocidade_maxima_kmh, odometro_km
-                FROM veiculos
-                WHERE empresa_id = %(empresa_id)s
-                ORDER BY marca, modelo, ano DESC, veiculo_id
+                    veiculo.veiculo_id, veiculo.empresa_id,
+                    veiculo.hardware_id, veiculo.locatario_id,
+                    veiculo.marca, veiculo.modelo, veiculo.ano,
+                    veiculo.cor, veiculo.placa, veiculo.combustivel_tipo,
+                    veiculo.capacidade_tanque_l, veiculo.consumo_km_l,
+                    veiculo.velocidade_maxima_kmh, veiculo.odometro_km,
+                    foto.object_key AS foto_thumb_object_key
+                FROM veiculos AS veiculo
+                LEFT JOIN fotos AS foto
+                    ON foto.veiculo_id = veiculo.veiculo_id
+                   AND foto.thumb = TRUE
+                WHERE veiculo.empresa_id = %(empresa_id)s
+                ORDER BY
+                    veiculo.marca,
+                    veiculo.modelo,
+                    veiculo.ano DESC,
+                    veiculo.veiculo_id
                 """,
                 {"empresa_id": current_user.empresa_id},
             ).fetchall()
@@ -36,6 +47,18 @@ def list_vehicles(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Nao foi possivel acessar o banco de dados",
+        ) from error
+
+    try:
+        for vehicle in vehicles:
+            object_key = vehicle.pop("foto_thumb_object_key")
+            vehicle["foto_thumb_url"] = (
+                create_download_url(object_key) if object_key else None
+            )
+    except StorageError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
         ) from error
 
     return vehicles

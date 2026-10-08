@@ -65,6 +65,8 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 
 Os arquivos sao armazenados no B2 como `fotos_veiculares/{uuid}.webp`. O
 relacionamento com empresa e veiculo permanece no banco de dados.
+`GET /veiculos` inclui `foto_thumb_url`, com URL temporaria da foto principal,
+ou `null` quando o veiculo ainda nao possui thumbnail.
 Na exclusao, a API remove permanentemente todas as versoes e marcadores do
 objeto no B2; a Application Key precisa da permissao `deleteFiles`.
 - `GET /docs`: documentacao OpenAPI interativa.
