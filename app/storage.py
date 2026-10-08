@@ -74,9 +74,30 @@ def create_download_url(object_key: str, expires_in: int = 900) -> str:
 def delete_image(object_key: str) -> None:
     settings = get_settings()
     try:
-        get_storage_client().delete_object(
+        client = get_storage_client()
+        paginator = client.get_paginator("list_object_versions")
+        versions: list[dict[str, str]] = []
+
+        for page in paginator.paginate(
             Bucket=settings.b2_bucket_name,
-            Key=object_key,
-        )
+            Prefix=object_key,
+        ):
+            for item in [*page.get("Versions", []), *page.get("DeleteMarkers", [])]:
+                if item.get("Key") == object_key and item.get("VersionId"):
+                    versions.append(
+                        {
+                            "Key": object_key,
+                            "VersionId": item["VersionId"],
+                        }
+                    )
+
+        for version in versions:
+            client.delete_object(
+                Bucket=settings.b2_bucket_name,
+                Key=version["Key"],
+                VersionId=version["VersionId"],
+            )
     except (BotoCoreError, ClientError) as error:
-        raise StorageError("Falha ao excluir imagem do Backblaze") from error
+        raise StorageError(
+            "Falha ao excluir permanentemente as versoes da imagem no Backblaze"
+        ) from error
