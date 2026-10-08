@@ -47,16 +47,25 @@ def get_storage_client() -> BaseClient:
 
 
 def upload_image(object_key: str, content: bytes) -> None:
+    upload_object(object_key, content, "image/webp", "imagem")
+
+
+def upload_object(
+    object_key: str,
+    content: bytes,
+    content_type: str,
+    object_label: str = "arquivo",
+) -> None:
     settings = get_settings()
     try:
         get_storage_client().put_object(
             Bucket=settings.b2_bucket_name,
             Key=object_key,
             Body=content,
-            ContentType="image/webp",
+            ContentType=content_type,
         )
     except (BotoCoreError, ClientError) as error:
-        raise StorageError("Falha ao enviar imagem ao Backblaze") from error
+        raise StorageError(f"Falha ao enviar {object_label} ao Backblaze") from error
 
 
 def create_download_url(object_key: str, expires_in: int = 900) -> str:
@@ -68,10 +77,14 @@ def create_download_url(object_key: str, expires_in: int = 900) -> str:
             ExpiresIn=expires_in,
         )
     except (BotoCoreError, ClientError) as error:
-        raise StorageError("Falha ao gerar URL da imagem") from error
+        raise StorageError("Falha ao gerar URL temporaria do arquivo") from error
 
 
 def delete_image(object_key: str) -> None:
+    delete_object(object_key, "imagem")
+
+
+def delete_object(object_key: str, object_label: str = "arquivo") -> None:
     settings = get_settings()
     try:
         client = get_storage_client()
@@ -99,5 +112,5 @@ def delete_image(object_key: str) -> None:
             )
     except (BotoCoreError, ClientError) as error:
         raise StorageError(
-            "Falha ao excluir permanentemente as versoes da imagem no Backblaze"
+            f"Falha ao excluir permanentemente as versoes do {object_label} no Backblaze"
         ) from error

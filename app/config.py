@@ -39,6 +39,7 @@ class Settings(BaseModel):
     b2_key_id: str | None = None
     b2_application_key: str | None = None
     b2_object_prefix: str = "fotos_veiculares"
+    b2_renter_document_prefix: str = "documentos_locatarios"
 
 
 @lru_cache
@@ -67,4 +68,7 @@ def get_settings() -> Settings:
         b2_key_id=os.getenv("B2_KEY_ID"),
         b2_application_key=os.getenv("B2_APPLICATION_KEY"),
         b2_object_prefix=os.getenv("B2_OBJECT_PREFIX", "fotos_veiculares").strip("/"),
+        b2_renter_document_prefix=os.getenv(
+            "B2_RENTER_DOCUMENT_PREFIX", "documentos_locatarios"
+        ).strip("/"),
     )
