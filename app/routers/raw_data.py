@@ -173,12 +173,18 @@ def list_rented_vehicles_latest_status(
                 """
                 SELECT
                     veiculo.veiculo_id, veiculo.locatario_id,
+                    locatario.locatario_nome,
+                    locatario.locatario_sobrenome,
+                    locatario.locatario_cpf,
                     veiculo.marca, veiculo.modelo, veiculo.placa,
                     foto.object_key AS foto_thumb_object_key,
                     ultimo.status_id, ultimo.ignicao, ultimo.bateria,
                     ultimo.velocidade, ultimo.longitude, ultimo.latitude,
                     ultimo.registrado_em
                 FROM veiculos AS veiculo
+                INNER JOIN locatarios AS locatario
+                    ON locatario.locatario_id = veiculo.locatario_id
+                   AND locatario.empresa_id = veiculo.empresa_id
                 LEFT JOIN LATERAL (
                     SELECT
                         dado.status_id, dado.ignicao, dado.bateria,

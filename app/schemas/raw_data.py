@@ -27,6 +27,9 @@ class RawDataResponse(RawDataCreate):
 class RentedVehicleLatestStatus(BaseModel):
     veiculo_id: int
     locatario_id: int
+    locatario_nome: str
+    locatario_sobrenome: str
+    locatario_cpf: str
     marca: str
     modelo: str
     placa: str
