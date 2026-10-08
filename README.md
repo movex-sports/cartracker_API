@@ -70,6 +70,16 @@ ou `null` quando o veiculo ainda nao possui thumbnail.
 As CNHs dos locatarios ficam em `documentos_locatarios/{uuid}.pdf` e podem ser
 enviadas, consultadas ou excluidas em `/locatarios/{locatario_id}/documentos/cnh`.
 O upload aceita exclusivamente PDF de ate 10 MB.
+
+## Telemetria do hardware
+
+- `POST /dados-crus`: recebe a leitura do dispositivo usando o header
+  `X-Hardware-Key`.
+- `GET /dados-crus/veiculos-alugados`: lista os veiculos alugados da empresa
+  autenticada e a leitura mais recente de cada um.
+
+Configure `HARDWARE_INGEST_KEY` no Render com uma chave longa e aleatoria. Veiculos
+sem nenhuma leitura aparecem no GET com os campos de telemetria iguais a `null`.
 Na exclusao, a API remove permanentemente todas as versoes e marcadores do
 objeto no B2; a Application Key precisa da permissao `deleteFiles`.
 - `GET /docs`: documentacao OpenAPI interativa.

@@ -33,6 +33,7 @@ class Settings(BaseModel):
     database_url: str
     jwt_secret: str
     access_token_minutes: int = 10
+    hardware_ingest_key: str | None = None
     b2_endpoint: str | None = None
     b2_region: str | None = None
     b2_bucket_name: str | None = None
@@ -62,6 +63,7 @@ def get_settings() -> Settings:
         database_url=database_url,
         jwt_secret=jwt_secret,
         access_token_minutes=int(os.getenv("ACCESS_TOKEN_MINUTES", "10")),
+        hardware_ingest_key=os.getenv("HARDWARE_INGEST_KEY"),
         b2_endpoint=os.getenv("B2_ENDPOINT"),
         b2_region=os.getenv("B2_REGION"),
         b2_bucket_name=os.getenv("B2_BUCKET_NAME"),

@@ -80,13 +80,16 @@ def upload_object(
             f"Falha ao enviar {object_label} ao Backblaze (codigo: {error_code})"
         ) from error
     except BotoCoreError as error:
+        error_type = type(error).__name__
         logger.exception(
-            "Falha de comunicacao no upload de %s (chave: %s)",
+            "Falha de comunicacao no upload de %s (tipo: %s, chave: %s)",
             object_label,
+            error_type,
             object_key,
         )
         raise StorageError(
-            f"Falha de comunicacao ao enviar {object_label} ao Backblaze"
+            "Falha de comunicacao ao enviar "
+            f"{object_label} ao Backblaze (tipo: {error_type})"
         ) from error
 
 
