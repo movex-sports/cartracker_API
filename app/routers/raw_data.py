@@ -16,6 +16,7 @@ from app.schemas.raw_data import (
     RawDataResponse,
     RentedVehicleLatestStatus,
 )
+from app.storage import StorageError, create_download_url
 
 
 router = APIRouter(prefix="/dados-crus", tags=["vehicle telemetry"])
@@ -173,6 +174,7 @@ def list_rented_vehicles_latest_status(
                 SELECT
                     veiculo.veiculo_id, veiculo.locatario_id,
                     veiculo.marca, veiculo.modelo, veiculo.placa,
+                    foto.object_key AS foto_thumb_object_key,
                     ultimo.status_id, ultimo.ignicao, ultimo.bateria,
                     ultimo.velocidade, ultimo.longitude, ultimo.latitude,
                     ultimo.registrado_em
@@ -187,6 +189,9 @@ def list_rented_vehicles_latest_status(
                     ORDER BY dado.registrado_em DESC, dado.status_id DESC
                     LIMIT 1
                 ) AS ultimo ON TRUE
+                LEFT JOIN fotos AS foto
+                    ON foto.veiculo_id = veiculo.veiculo_id
+                   AND foto.thumb = TRUE
                 WHERE veiculo.empresa_id = %(empresa_id)s
                   AND veiculo.locatario_id IS NOT NULL
                 ORDER BY veiculo.marca, veiculo.modelo, veiculo.veiculo_id
@@ -203,4 +208,14 @@ def list_rented_vehicles_latest_status(
         vehicle["coordenadas"] = format_coordinates(
             vehicle["latitude"], vehicle["longitude"]
         )
+        object_key = vehicle.pop("foto_thumb_object_key")
+        try:
+            vehicle["foto_thumb_url"] = (
+                create_download_url(object_key) if object_key else None
+            )
+        except StorageError as error:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(error),
+            ) from error
     return vehicles

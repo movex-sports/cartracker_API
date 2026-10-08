@@ -30,6 +30,7 @@ class RentedVehicleLatestStatus(BaseModel):
     marca: str
     modelo: str
     placa: str
+    foto_thumb_url: str | None
     status_id: int | None
     ignicao: bool | None
     bateria: Decimal | None
