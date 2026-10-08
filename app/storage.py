@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from functools import lru_cache
 
@@ -11,6 +12,9 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import get_settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class StorageError(RuntimeError):
@@ -64,8 +68,26 @@ def upload_object(
             Body=content,
             ContentType=content_type,
         )
-    except (BotoCoreError, ClientError) as error:
-        raise StorageError(f"Falha ao enviar {object_label} ao Backblaze") from error
+    except ClientError as error:
+        error_code = error.response.get("Error", {}).get("Code", "desconhecido")
+        logger.exception(
+            "Backblaze recusou o upload de %s (codigo: %s, chave: %s)",
+            object_label,
+            error_code,
+            object_key,
+        )
+        raise StorageError(
+            f"Falha ao enviar {object_label} ao Backblaze (codigo: {error_code})"
+        ) from error
+    except BotoCoreError as error:
+        logger.exception(
+            "Falha de comunicacao no upload de %s (chave: %s)",
+            object_label,
+            object_key,
+        )
+        raise StorageError(
+            f"Falha de comunicacao ao enviar {object_label} ao Backblaze"
+        ) from error
 
 
 def create_download_url(object_key: str, expires_in: int = 900) -> str:
