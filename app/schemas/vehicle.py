@@ -70,5 +70,11 @@ class VehicleResponse(VehicleCreate):
     foto_thumb_url: str | None = None
 
 
+class VehicleHardwareUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    hardware_id: int | None = Field(default=None, gt=0)
+
+
 class VehicleListItem(VehicleResponse):
     odometro_km: Decimal

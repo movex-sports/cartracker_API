@@ -7,11 +7,76 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth_dependencies import AuthenticatedUser, require_authenticated_user
 from app.database import get_connection
-from app.schemas.vehicle import VehicleCreate, VehicleListItem, VehicleResponse
+from app.schemas.vehicle import (
+    VehicleCreate,
+    VehicleHardwareUpdate,
+    VehicleListItem,
+    VehicleResponse,
+)
 from app.storage import StorageError, create_download_url
 
 
 router = APIRouter(prefix="/veiculos", tags=["vehicles"])
+
+
+@router.patch("/{veiculo_id}/hardware", response_model=VehicleResponse)
+def update_vehicle_hardware(
+    veiculo_id: int,
+    payload: VehicleHardwareUpdate,
+    current_user: AuthenticatedUser = Depends(require_authenticated_user),
+) -> dict:
+    try:
+        with get_connection() as connection:
+            if payload.hardware_id is not None:
+                hardware = connection.execute(
+                    """
+                    SELECT hardware_id
+                    FROM hardware
+                    WHERE hardware_id = %(hardware_id)s
+                      AND empresa_id = %(empresa_id)s
+                    """,
+                    {
+                        "hardware_id": payload.hardware_id,
+                        "empresa_id": current_user.empresa_id,
+                    },
+                ).fetchone()
+                if not hardware:
+                    raise HTTPException(status_code=404, detail="Hardware nao encontrado")
+
+            vehicle = connection.execute(
+                """
+                UPDATE veiculos
+                SET hardware_id = %(hardware_id)s
+                WHERE veiculo_id = %(veiculo_id)s
+                  AND empresa_id = %(empresa_id)s
+                RETURNING
+                    veiculo_id, empresa_id, hardware_id, locatario_id,
+                    marca, modelo, ano, cor, placa, combustivel_tipo,
+                    capacidade_tanque_l, consumo_km_l,
+                    velocidade_maxima_kmh
+                """,
+                {
+                    "hardware_id": payload.hardware_id,
+                    "veiculo_id": veiculo_id,
+                    "empresa_id": current_user.empresa_id,
+                },
+            ).fetchone()
+            if not vehicle:
+                raise HTTPException(status_code=404, detail="Veiculo nao encontrado")
+    except HTTPException:
+        raise
+    except psycopg.errors.UniqueViolation as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Hardware ja vinculado a outro veiculo",
+        ) from error
+    except psycopg.Error as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Nao foi possivel vincular o hardware",
+        ) from error
+
+    return vehicle
 
 
 @router.get("", response_model=list[VehicleListItem])

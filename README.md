@@ -51,7 +51,8 @@ refazer o deploy nao tenta recriar tabelas que ja existem.
 - `POST /auth/renew`: renova por mais 10 minutos um access token ainda valido.
 - `POST /veiculos`: cadastra um veiculo para a empresa do usuario autenticado.
 - `GET /veiculos`: lista os veiculos da empresa do usuario autenticado.
-- `POST /hardware`: gera um hardware para a empresa informada e autenticada.
+- `POST /hardware`: cadastra um hardware, opcionalmente com o IMEI do rastreador.
+- `PATCH /veiculos/{veiculo_id}/hardware`: vincula ou desvincula um hardware.
 - `GET /catalogo/marcas`: lista marcas para o dropdown do frontend.
 - `GET /catalogo/marcas/{marca_id}/modelos`: lista modelos de uma marca.
 - `POST /veiculos/{veiculo_id}/locatarios`: cadastra um locatario no veiculo.
@@ -73,23 +74,34 @@ O upload aceita exclusivamente PDF de ate 10 MB.
 
 ## Telemetria do hardware
 
-- `POST /dados-crus`: recebe a leitura do dispositivo usando o header
-  `X-Hardware-Key`.
-- `POST /dados-crus/manual`: permite inserir uma leitura manualmente usando o
-  token do usuario, inclusive antes de existir hardware vinculado ao veiculo.
+- `POST /dados-crus`: recebe IMEI e telemetria usando o header
+  `X-Hardware-Key`; a API resolve e grava `hardware_id` e `veiculo_id` em uma
+  unica operacao no banco.
 - `GET /dados-crus/veiculos-alugados`: lista os veiculos alugados da empresa
   autenticada e a leitura mais recente de cada um.
 
 Configure `HARDWARE_INGEST_KEY` no Render com uma chave longa e aleatoria. Veiculos
 sem nenhuma leitura aparecem no GET com os campos de telemetria iguais a `null`.
-TODO: quando o hardware estiver disponivel, configurar `HARDWARE_INGEST_KEY` no
-Render e no dispositivo antes de habilitar o envio automatico.
+Como o hardware ja esta disponivel, configure a mesma `HARDWARE_INGEST_KEY` no
+Render e no servico que publicara as leituras do rastreador.
+O payload inicial do ESP32 contem `imei`, `data_hora` com fuso UTC, `velocidade`,
+`latitude` e `longitude`. A API salva esse horario como `capturado_em` e tambem
+preenche `registrado_em` com o momento em que recebeu a requisicao.
 O banco guarda latitude e longitude em graus decimais; o GET tambem devolve
 `coordenadas` no formato DMS, por exemplo `23°31'47.0\"S 46°50'41.5\"W`.
 O GET de veiculos alugados tambem inclui `foto_thumb_url`, com uma URL assinada
 temporaria da foto principal, ou `null` quando o veiculo nao possui thumbnail.
 O mesmo retorno inclui nome, sobrenome e CPF do locatario atualmente vinculado
 ao veiculo, evitando uma segunda consulta do frontend.
+
+## Receptor G900L/J16
+
+O diretorio `gt06_server` contem o receptor TCP diagnostico do protocolo GT06.
+Ele escuta a porta configurada em `GT06_PORT` (5023 por padrao), valida CRC,
+registra os pacotes recebidos e responde aos pacotes de login e heartbeat.
+Consulte `gt06_server/README.md` para executar e testar. A publicacao automatica
+na API sera habilitada depois de confirmar os campos enviados pelo firmware do
+aparelho real.
 Na exclusao, a API remove permanentemente todas as versoes e marcadores do
 objeto no B2; a Application Key precisa da permissao `deleteFiles`.
 - `GET /docs`: documentacao OpenAPI interativa.

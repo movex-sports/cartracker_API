@@ -72,16 +72,23 @@ def insert_raw_data(connection: psycopg.Connection, payload: RawDataCreate) -> d
     return connection.execute(
         """
         INSERT INTO dados_crus (
-            veiculo_id, ignicao, bateria, velocidade,
-            longitude, latitude
+            hardware_id, veiculo_id, velocidade,
+            longitude, latitude, capturado_em
         )
-        VALUES (
-            %(veiculo_id)s, %(ignicao)s, %(bateria)s,
-            %(velocidade)s, %(longitude)s, %(latitude)s
-        )
+        SELECT
+            hardware.hardware_id, veiculo.veiculo_id,
+            %(velocidade)s, %(longitude)s, %(latitude)s,
+            %(data_hora)s
+        FROM hardware
+        INNER JOIN veiculos AS veiculo
+            ON veiculo.hardware_id = hardware.hardware_id
+           AND veiculo.empresa_id = hardware.empresa_id
+        WHERE hardware.imei = %(imei)s
+          AND hardware.status = TRUE
         RETURNING
-            status_id, veiculo_id, ignicao, bateria, velocidade,
-            longitude, latitude, registrado_em
+            status_id, hardware_id, veiculo_id, ignicao, bateria,
+            velocidade, longitude, latitude,
+            capturado_em AS data_hora, registrado_em
         """,
         payload.model_dump(),
     ).fetchone()
@@ -94,67 +101,21 @@ def ingest_raw_data(
 ) -> dict:
     try:
         with get_connection() as connection:
-            vehicle = connection.execute(
-                """
-                SELECT veiculo_id, hardware_id
-                FROM veiculos
-                WHERE veiculo_id = %(veiculo_id)s
-                """,
-                {"veiculo_id": payload.veiculo_id},
-            ).fetchone()
-            if not vehicle:
-                raise HTTPException(status_code=404, detail="Veiculo nao encontrado")
-            if vehicle["hardware_id"] is None:
+            raw_data = insert_raw_data(connection, payload)
+            if not raw_data:
                 raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Veiculo nao possui hardware vinculado",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=(
+                        "IMEI nao cadastrado, hardware inativo "
+                        "ou sem veiculo vinculado"
+                    ),
                 )
-
-            raw_data = insert_raw_data(connection, payload)
     except HTTPException:
         raise
     except psycopg.Error as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Nao foi possivel salvar os dados do hardware",
-        ) from error
-
-    return raw_data
-
-
-@router.post(
-    "/manual",
-    response_model=RawDataResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_manual_raw_data(
-    payload: RawDataCreate,
-    current_user: AuthenticatedUser = Depends(require_authenticated_user),
-) -> dict:
-    try:
-        with get_connection() as connection:
-            vehicle = connection.execute(
-                """
-                SELECT veiculo_id
-                FROM veiculos
-                WHERE veiculo_id = %(veiculo_id)s
-                  AND empresa_id = %(empresa_id)s
-                """,
-                {
-                    "veiculo_id": payload.veiculo_id,
-                    "empresa_id": current_user.empresa_id,
-                },
-            ).fetchone()
-            if not vehicle:
-                raise HTTPException(status_code=404, detail="Veiculo nao encontrado")
-
-            raw_data = insert_raw_data(connection, payload)
-    except HTTPException:
-        raise
-    except psycopg.Error as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Nao foi possivel salvar os dados manuais",
+            detail="Nao foi possivel salvar os dados do rastreador",
         ) from error
 
     return raw_data
@@ -180,6 +141,7 @@ def list_rented_vehicles_latest_status(
                     foto.object_key AS foto_thumb_object_key,
                     ultimo.status_id, ultimo.ignicao, ultimo.bateria,
                     ultimo.velocidade, ultimo.longitude, ultimo.latitude,
+                    ultimo.capturado_em AS data_hora,
                     ultimo.registrado_em
                 FROM veiculos AS veiculo
                 INNER JOIN locatarios AS locatario
@@ -189,10 +151,10 @@ def list_rented_vehicles_latest_status(
                     SELECT
                         dado.status_id, dado.ignicao, dado.bateria,
                         dado.velocidade, dado.longitude, dado.latitude,
-                        dado.registrado_em
+                        dado.capturado_em, dado.registrado_em
                     FROM dados_crus AS dado
                     WHERE dado.veiculo_id = veiculo.veiculo_id
-                    ORDER BY dado.registrado_em DESC, dado.status_id DESC
+                    ORDER BY dado.capturado_em DESC, dado.status_id DESC
                     LIMIT 1
                 ) AS ultimo ON TRUE
                 LEFT JOIN fotos AS foto

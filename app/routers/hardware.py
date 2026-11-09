@@ -28,12 +28,17 @@ def create_hardware(
         with get_connection() as connection:
             hardware = connection.execute(
                 """
-                INSERT INTO hardware (empresa_id)
-                VALUES (%(empresa_id)s)
-                RETURNING hardware_id, empresa_id
+                INSERT INTO hardware (empresa_id, imei)
+                VALUES (%(empresa_id)s, %(imei)s)
+                RETURNING hardware_id, empresa_id, imei, status
                 """,
-                {"empresa_id": payload.empresa_id},
+                payload.model_dump(),
             ).fetchone()
+    except psycopg.errors.UniqueViolation as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="IMEI ja cadastrado",
+        ) from error
     except psycopg.Error as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
