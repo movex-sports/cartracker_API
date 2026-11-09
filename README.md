@@ -84,9 +84,10 @@ Configure `HARDWARE_INGEST_KEY` no Render com uma chave longa e aleatoria. Veicu
 sem nenhuma leitura aparecem no GET com os campos de telemetria iguais a `null`.
 Como o hardware ja esta disponivel, configure a mesma `HARDWARE_INGEST_KEY` no
 Render e no servico que publicara as leituras do rastreador.
-O payload inicial do ESP32 contem `imei`, `data_hora` com fuso UTC, `velocidade`,
-`latitude` e `longitude`. A API salva esse horario como `capturado_em` e tambem
-preenche `registrado_em` com o momento em que recebeu a requisicao.
+O ESP32 usa o mesmo endpoint para dois tipos de evento. `tipo=localizacao`
+envia `imei`, `data_hora` com fuso UTC, `velocidade`, `latitude` e `longitude`.
+`tipo=heartbeat` envia `imei` e `ignicao`. O heartbeat atualiza o estado atual
+no hardware; cada nova localizacao copia esse estado para `dados_crus.ignicao`.
 O banco guarda latitude e longitude em graus decimais; o GET tambem devolve
 `coordenadas` no formato DMS, por exemplo `23°31'47.0\"S 46°50'41.5\"W`.
 O GET de veiculos alugados tambem inclui `foto_thumb_url`, com uma URL assinada

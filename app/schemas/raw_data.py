@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class RawDataCreate(BaseModel):
+class LocationRawDataCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    tipo: Literal["localizacao"]
     imei: str = Field(pattern=r"^[0-9]{14,16}$")
     data_hora: datetime
     velocidade: Decimal = Field(ge=0, max_digits=8, decimal_places=2)
@@ -25,7 +27,22 @@ class RawDataCreate(BaseModel):
         return value.astimezone(timezone.utc)
 
 
+class HeartbeatRawDataCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: Literal["heartbeat"]
+    imei: str = Field(pattern=r"^[0-9]{14,16}$")
+    ignicao: bool
+
+
+RawDataCreate = Annotated[
+    LocationRawDataCreate | HeartbeatRawDataCreate,
+    Field(discriminator="tipo"),
+]
+
+
 class RawDataResponse(BaseModel):
+    tipo: Literal["localizacao"]
     status_id: int
     hardware_id: int
     veiculo_id: int
@@ -36,6 +53,15 @@ class RawDataResponse(BaseModel):
     latitude: Decimal
     data_hora: datetime
     registrado_em: datetime
+
+
+class HeartbeatResponse(BaseModel):
+    tipo: Literal["heartbeat"]
+    hardware_id: int
+    veiculo_id: int
+    ignicao: bool
+    ignicao_atualizada_em: datetime
+    ultimo_heartbeat_em: datetime
 
 
 class RentedVehicleLatestStatus(BaseModel):
@@ -50,6 +76,7 @@ class RentedVehicleLatestStatus(BaseModel):
     foto_thumb_url: str | None
     status_id: int | None
     ignicao: bool | None
+    ignicao_atualizada_em: datetime | None
     bateria: Decimal | None
     velocidade: Decimal | None
     longitude: Decimal | None

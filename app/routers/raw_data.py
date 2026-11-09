@@ -12,6 +12,9 @@ from app.auth_dependencies import AuthenticatedUser, require_authenticated_user
 from app.config import get_settings
 from app.database import get_connection
 from app.schemas.raw_data import (
+    HeartbeatRawDataCreate,
+    HeartbeatResponse,
+    LocationRawDataCreate,
     RawDataCreate,
     RawDataResponse,
     RentedVehicleLatestStatus,
@@ -68,15 +71,19 @@ def require_hardware_key(
         )
 
 
-def insert_raw_data(connection: psycopg.Connection, payload: RawDataCreate) -> dict:
+def insert_location(
+    connection: psycopg.Connection,
+    payload: LocationRawDataCreate,
+) -> dict | None:
     return connection.execute(
         """
         INSERT INTO dados_crus (
-            hardware_id, veiculo_id, velocidade,
+            hardware_id, veiculo_id, ignicao, velocidade,
             longitude, latitude, capturado_em
         )
         SELECT
             hardware.hardware_id, veiculo.veiculo_id,
+            hardware.ignicao_atual,
             %(velocidade)s, %(longitude)s, %(latitude)s,
             %(data_hora)s
         FROM hardware
@@ -90,19 +97,64 @@ def insert_raw_data(connection: psycopg.Connection, payload: RawDataCreate) -> d
             velocidade, longitude, latitude,
             capturado_em AS data_hora, registrado_em
         """,
-        payload.model_dump(),
+        payload.model_dump(exclude={"tipo"}),
     ).fetchone()
 
 
-@router.post("", response_model=RawDataResponse, status_code=status.HTTP_201_CREATED)
+def update_heartbeat(
+    connection: psycopg.Connection,
+    payload: HeartbeatRawDataCreate,
+) -> dict | None:
+    return connection.execute(
+        """
+        WITH hardware_atualizado AS (
+            UPDATE hardware
+            SET
+                ignicao_atual = %(ignicao)s,
+                ignicao_atualizada_em = CASE
+                    WHEN ignicao_atual IS DISTINCT FROM %(ignicao)s
+                    THEN CURRENT_TIMESTAMP
+                    ELSE ignicao_atualizada_em
+                END,
+                ultimo_heartbeat_em = CURRENT_TIMESTAMP
+            WHERE imei = %(imei)s
+              AND status = TRUE
+            RETURNING
+                hardware_id, empresa_id, ignicao_atual,
+                ignicao_atualizada_em, ultimo_heartbeat_em
+        )
+        SELECT
+            hardware_atualizado.hardware_id,
+            veiculo.veiculo_id,
+            hardware_atualizado.ignicao_atual AS ignicao,
+            hardware_atualizado.ignicao_atualizada_em,
+            hardware_atualizado.ultimo_heartbeat_em
+        FROM hardware_atualizado
+        INNER JOIN veiculos AS veiculo
+            ON veiculo.hardware_id = hardware_atualizado.hardware_id
+           AND veiculo.empresa_id = hardware_atualizado.empresa_id
+        """,
+        payload.model_dump(exclude={"tipo"}),
+    ).fetchone()
+
+
+@router.post(
+    "",
+    response_model=RawDataResponse | HeartbeatResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def ingest_raw_data(
     payload: RawDataCreate,
     _: None = Depends(require_hardware_key),
 ) -> dict:
     try:
         with get_connection() as connection:
-            raw_data = insert_raw_data(connection, payload)
-            if not raw_data:
+            if isinstance(payload, LocationRawDataCreate):
+                result = insert_location(connection, payload)
+            else:
+                result = update_heartbeat(connection, payload)
+
+            if not result:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
@@ -110,6 +162,7 @@ def ingest_raw_data(
                         "ou sem veiculo vinculado"
                     ),
                 )
+            result["tipo"] = payload.tipo
     except HTTPException:
         raise
     except psycopg.Error as error:
@@ -118,7 +171,7 @@ def ingest_raw_data(
             detail="Nao foi possivel salvar os dados do rastreador",
         ) from error
 
-    return raw_data
+    return result
 
 
 @router.get(
@@ -139,7 +192,10 @@ def list_rented_vehicles_latest_status(
                     locatario.locatario_cpf,
                     veiculo.marca, veiculo.modelo, veiculo.placa,
                     foto.object_key AS foto_thumb_object_key,
-                    ultimo.status_id, ultimo.ignicao, ultimo.bateria,
+                    ultimo.status_id,
+                    hardware.ignicao_atual AS ignicao,
+                    hardware.ignicao_atualizada_em,
+                    ultimo.bateria,
                     ultimo.velocidade, ultimo.longitude, ultimo.latitude,
                     ultimo.capturado_em AS data_hora,
                     ultimo.registrado_em
@@ -147,6 +203,9 @@ def list_rented_vehicles_latest_status(
                 INNER JOIN locatarios AS locatario
                     ON locatario.locatario_id = veiculo.locatario_id
                    AND locatario.empresa_id = veiculo.empresa_id
+                LEFT JOIN hardware
+                    ON hardware.hardware_id = veiculo.hardware_id
+                   AND hardware.empresa_id = veiculo.empresa_id
                 LEFT JOIN LATERAL (
                     SELECT
                         dado.status_id, dado.ignicao, dado.bateria,
