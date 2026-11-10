@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -51,6 +51,8 @@ class RawDataResponse(BaseModel):
     velocidade: Decimal
     longitude: Decimal
     latitude: Decimal
+    data_rota: date | None
+    numero_rota: int | None
     data_hora: datetime
     registrado_em: datetime
 
@@ -60,6 +62,8 @@ class HeartbeatResponse(BaseModel):
     hardware_id: int
     veiculo_id: int
     ignicao: bool
+    data_rota_atual: date | None
+    numero_rota_atual: int | None
     ignicao_atualizada_em: datetime
     ultimo_heartbeat_em: datetime
 
@@ -75,7 +79,7 @@ class RentedVehicleLatestStatus(BaseModel):
     placa: str
     foto_thumb_url: str | None
     status_id: int | None
-    ignicao: bool | None
+    ignicao: bool
     ignicao_atualizada_em: datetime | None
     bateria: Decimal | None
     velocidade: Decimal | None

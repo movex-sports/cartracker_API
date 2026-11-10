@@ -79,12 +79,14 @@ def insert_location(
         """
         INSERT INTO dados_crus (
             hardware_id, veiculo_id, ignicao, velocidade,
-            longitude, latitude, capturado_em
+            longitude, latitude, data_rota, numero_rota,
+            capturado_em
         )
         SELECT
             hardware.hardware_id, veiculo.veiculo_id,
             hardware.ignicao_atual,
             %(velocidade)s, %(longitude)s, %(latitude)s,
+            hardware.data_rota_atual, hardware.numero_rota_atual,
             %(data_hora)s
         FROM hardware
         INNER JOIN veiculos AS veiculo
@@ -95,6 +97,7 @@ def insert_location(
         RETURNING
             status_id, hardware_id, veiculo_id, ignicao, bateria,
             velocidade, longitude, latitude,
+            data_rota, numero_rota,
             capturado_em AS data_hora, registrado_em
         """,
         payload.model_dump(exclude={"tipo"}),
@@ -107,32 +110,81 @@ def update_heartbeat(
 ) -> dict | None:
     return connection.execute(
         """
-        WITH hardware_atualizado AS (
+        WITH alvo AS MATERIALIZED (
+            SELECT
+                hardware.hardware_id, hardware.empresa_id,
+                hardware.ignicao_atual,
+                hardware.data_rota_atual,
+                hardware.numero_rota_atual,
+                veiculo.veiculo_id,
+                (CURRENT_TIMESTAMP AT TIME ZONE 'America/Sao_Paulo')::DATE
+                    AS hoje
+            FROM hardware
+            INNER JOIN veiculos AS veiculo
+                ON veiculo.hardware_id = hardware.hardware_id
+               AND veiculo.empresa_id = hardware.empresa_id
+            WHERE hardware.imei = %(imei)s
+              AND hardware.status = TRUE
+            FOR UPDATE OF hardware
+        ),
+        proximo_estado AS (
+            SELECT
+                alvo.*,
+                CASE
+                    WHEN %(ignicao)s = FALSE THEN NULL
+                    WHEN alvo.ignicao_atual = FALSE
+                         OR alvo.data_rota_atual IS NULL
+                         OR alvo.numero_rota_atual IS NULL
+                    THEN alvo.hoje
+                    ELSE alvo.data_rota_atual
+                END AS nova_data_rota,
+                CASE
+                    WHEN %(ignicao)s = FALSE THEN NULL
+                    WHEN alvo.ignicao_atual = FALSE
+                         OR alvo.data_rota_atual IS NULL
+                         OR alvo.numero_rota_atual IS NULL
+                    THEN (
+                        SELECT COALESCE(MAX(dado.numero_rota), 0) + 1
+                        FROM dados_crus AS dado
+                        WHERE dado.veiculo_id = alvo.veiculo_id
+                          AND dado.data_rota = alvo.hoje
+                    )
+                    ELSE alvo.numero_rota_atual
+                END AS novo_numero_rota
+            FROM alvo
+        ),
+        hardware_atualizado AS (
             UPDATE hardware
             SET
                 ignicao_atual = %(ignicao)s,
+                data_rota_atual = proximo_estado.nova_data_rota,
+                numero_rota_atual = proximo_estado.novo_numero_rota,
                 ignicao_atualizada_em = CASE
-                    WHEN ignicao_atual IS DISTINCT FROM %(ignicao)s
+                    WHEN hardware.ignicao_atual IS DISTINCT FROM %(ignicao)s
+                         OR hardware.ignicao_atualizada_em IS NULL
                     THEN CURRENT_TIMESTAMP
-                    ELSE ignicao_atualizada_em
+                    ELSE hardware.ignicao_atualizada_em
                 END,
                 ultimo_heartbeat_em = CURRENT_TIMESTAMP
-            WHERE imei = %(imei)s
-              AND status = TRUE
+            FROM proximo_estado
+            WHERE hardware.hardware_id = proximo_estado.hardware_id
             RETURNING
-                hardware_id, empresa_id, ignicao_atual,
-                ignicao_atualizada_em, ultimo_heartbeat_em
+                hardware.hardware_id, hardware.ignicao_atual,
+                hardware.data_rota_atual, hardware.numero_rota_atual,
+                hardware.ignicao_atualizada_em,
+                hardware.ultimo_heartbeat_em
         )
         SELECT
             hardware_atualizado.hardware_id,
-            veiculo.veiculo_id,
+            proximo_estado.veiculo_id,
             hardware_atualizado.ignicao_atual AS ignicao,
+            hardware_atualizado.data_rota_atual,
+            hardware_atualizado.numero_rota_atual,
             hardware_atualizado.ignicao_atualizada_em,
             hardware_atualizado.ultimo_heartbeat_em
         FROM hardware_atualizado
-        INNER JOIN veiculos AS veiculo
-            ON veiculo.hardware_id = hardware_atualizado.hardware_id
-           AND veiculo.empresa_id = hardware_atualizado.empresa_id
+        INNER JOIN proximo_estado
+            ON proximo_estado.hardware_id = hardware_atualizado.hardware_id
         """,
         payload.model_dump(exclude={"tipo"}),
     ).fetchone()
@@ -193,7 +245,7 @@ def list_rented_vehicles_latest_status(
                     veiculo.marca, veiculo.modelo, veiculo.placa,
                     foto.object_key AS foto_thumb_object_key,
                     ultimo.status_id,
-                    hardware.ignicao_atual AS ignicao,
+                    COALESCE(hardware.ignicao_atual, FALSE) AS ignicao,
                     hardware.ignicao_atualizada_em,
                     ultimo.bateria,
                     ultimo.velocidade, ultimo.longitude, ultimo.latitude,

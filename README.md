@@ -95,6 +95,17 @@ temporaria da foto principal, ou `null` quando o veiculo nao possui thumbnail.
 O mesmo retorno inclui nome, sobrenome e CPF do locatario atualmente vinculado
 ao veiculo, evitando uma segunda consulta do frontend.
 
+## Rotas diarias
+
+Quando a ignicao muda de `false` para `true`, o hardware recebe o proximo numero
+de rota do veiculo naquele dia. Localizacoes com ignicao ligada copiam
+`data_rota` e `numero_rota`; localizacoes desligadas continuam sendo salvas com
+esses campos nulos.
+
+- `GET /veiculos/{veiculo_id}/rotas?data=AAAA-MM-DD`: lista as rotas do dia.
+- `GET /veiculos/{veiculo_id}/rotas/{numero_rota}?data=AAAA-MM-DD`: devolve os
+  pontos ordenados da rota escolhida.
+
 ## Receptor G900L/J16
 
 O diretorio `gt06_server` contem o receptor TCP diagnostico do protocolo GT06.
